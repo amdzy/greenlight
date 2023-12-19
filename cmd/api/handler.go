@@ -13,5 +13,5 @@ func (app *application) healthcheckHandler(w http.ResponseWriter, r *http.Reques
 		},
 	}
 
-	app.writeJSON(w, http.StatusOK, data, nil)
+	app.writeJSON(w, r, http.StatusOK, data, nil)
 }

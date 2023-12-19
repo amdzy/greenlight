@@ -15,7 +15,7 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
-		http.NotFound(w, r)
+		app.notFoundResponse(w, r)
 		return
 	}
 
@@ -28,5 +28,5 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		CreatedAt: time.Now(),
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"movie": movie}, nil)
+	app.writeJSON(w, r, http.StatusOK, envelope{"movie": movie}, nil)
 }
