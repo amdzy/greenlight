@@ -28,6 +28,11 @@ type config struct {
 		maxIdleConns string
 		maxIdleTime  string
 	}
+	limiter struct {
+		rps     int
+		burst   int
+		enabled bool
+	}
 }
 
 type application struct {
@@ -53,6 +58,9 @@ func main() {
 	flag.StringVar(&cfg.db.maxOpenConns, "db-max-open-conns", getEnv("DB_MAX_IDLE_TIME", "25"), "PostgreSQL max open connections")
 	flag.StringVar(&cfg.db.maxIdleConns, "db-max-idle-conns", getEnv("DB_MAX_IDLE_TIME", "25"), "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", getEnv("DB_MAX_IDLE_TIME", "15m"), "PostgreSQL max connection idle time")
+	flag.IntVar(&cfg.limiter.rps, "limiter-rps", getIntEnv("LIMITER_RPS", 2), "Rate limiter maximum requests per second")
+	flag.IntVar(&cfg.limiter.burst, "limiter-burst", getIntEnv("LIMITER_BURST", 4), "Rate limiter maximum burst")
+	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", getBoolEnv("LIMITER_ENABLED", true), "Enable rate limiter")
 
 	flag.Parse()
 
@@ -89,11 +97,35 @@ func main() {
 	logger.PrintFatal(err, nil)
 }
 
-func getEnv(env, value string) string {
+func getEnv(env string, value string) string {
 	if v := os.Getenv(env); v != "" {
 		return v
 	}
 	return value
+}
+
+func getIntEnv(env string, value int) int {
+	v := os.Getenv(env)
+	if v == "" {
+		return value
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		log.Fatal("failed to parse int env variable")
+	}
+	return n
+}
+
+func getBoolEnv(env string, value bool) bool {
+	v := os.Getenv(env)
+	if v == "" {
+		return value
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		log.Fatal("failed to parse bool env variable")
+	}
+	return b
 }
 
 func openDB(cfg config) (*sql.DB, error) {
