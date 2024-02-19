@@ -11,6 +11,7 @@ import (
 
 	"github.com/Soul-Remix/greenlight/internal/data"
 	"github.com/Soul-Remix/greenlight/internal/jsonlog"
+	"github.com/Soul-Remix/greenlight/internal/mailer"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -31,12 +32,20 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
 }
 
 func init() {
@@ -51,14 +60,22 @@ func main() {
 	var cfg config
 
 	flag.StringVar(&cfg.port, "port", getEnv("PORT", "4000"), "API server port")
+
 	flag.StringVar(&cfg.env, "env", getEnv("ENVIRONMENT", "development"), "Environment (development|staging|production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
 	flag.StringVar(&cfg.db.maxOpenConns, "db-max-open-conns", getEnv("DB_MAX_IDLE_TIME", "25"), "PostgreSQL max open connections")
 	flag.StringVar(&cfg.db.maxIdleConns, "db-max-idle-conns", getEnv("DB_MAX_IDLE_TIME", "25"), "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", getEnv("DB_MAX_IDLE_TIME", "15m"), "PostgreSQL max connection idle time")
+
 	flag.IntVar(&cfg.limiter.rps, "limiter-rps", getIntEnv("LIMITER_RPS", 2), "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", getIntEnv("LIMITER_BURST", 4), "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", getBoolEnv("LIMITER_ENABLED", true), "Enable rate limiter")
+
+	flag.StringVar(&cfg.smtp.host, "smtp-host", getEnv("SMTP_HOST", ""), "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", getIntEnv("SMTP_PORT", 25), "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", getEnv("SMTP_USERNAME", ""), "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", getEnv("SMTP_PASSWORD", ""), "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", getEnv("SMTP_SENDER", "15m"), "SMTP sender")
 
 	flag.Parse()
 
@@ -76,6 +93,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 	}
 
 	err = app.serve()
